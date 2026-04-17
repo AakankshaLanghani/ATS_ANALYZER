@@ -1,118 +1,161 @@
 # ATS Resume Analyzer
 
-A local, privacy-first ATS tool. Uploads stay in-memory — nothing is stored.
+> AI-powered resume screening tool for HR teams. Upload multiple resumes, paste a job description, and get ranked candidates with honest, human-like scoring — not keyword filters.
 
-## Prerequisites
+**Privacy-first:** all uploads are processed in-memory. Nothing is stored, logged, or sent anywhere except your chosen AI provider.
+
+---
+
+## Features
+
+- **Multi-resume batch analysis** — upload up to 10 resumes at once, get a ranked table
+- **Human-like scoring** — skill equivalence (CapCut = Premiere), soft skill inference, domain adjacency detection
+- **Multiple AI providers** — works with OpenAI, Groq (free), Anthropic, or local Ollama
+- **HR-grade verdict logic** — retention risk flags, overqualification detection, domain alignment levels
+- **Modern UI** — ranking table, score breakdowns, interview questions, exportable results
+
+---
+
+## AI Provider Options
+
+Configure via `backend/.env` — no code changes needed.
+
+| Provider | Cost | Speed | Privacy | Best For |
+|----------|------|-------|---------|----------|
+| **Groq** | Free | ⚡ Fast | Cloud | Getting started |
+| **OpenAI** (gpt-4o-mini) | ~$0.01/resume | ⚡ Fast | Cloud | Production |
+| **Anthropic** (Claude Haiku) | ~$0.01/resume | ⚡ Fast | Cloud | High quality |
+| **Ollama** (local) | Free | 🐢 Slow | 100% Local | Full privacy |
+
+---
+
+## Quick Start
+
+### Prerequisites
 - Python 3.10+
 - Node.js 18+
-- Ollama installed (https://ollama.com)
 
----
-
-## Step 1 — Set up Ollama
+### Step 1 — Configure AI Provider
 
 ```bash
-# Pull the phi model (one-time, ~4GB download)
-ollama pull phi
-
-# Start Ollama (keep this terminal open, or it runs as a service automatically)
-ollama serve
+cd backend
+cp .env.example .env
 ```
 
-Verify Ollama is working:
-```bash
-curl http://localhost:11434/api/tags
-# Should list "phi" in the response
+Open `backend/.env` and set your provider:
+
+```env
+# Choose one: groq | openai | anthropic | ollama
+AI_PROVIDER=openai
+
+# Add your key for the chosen provider
+OPENAI_API_KEY=sk-proj-your-key-here
 ```
 
-Want a different model? Try these free options:
-```bash
-ollama pull llama3       # Meta's Llama 3 (better but slower)
-ollama pull phi3         # Microsoft Phi-3 (fast, small)
-ollama pull gemma2       # Google Gemma 2
-```
-Then change `OLLAMA_MODEL = "phi"` in backend/main.py to your chosen model.
+Get a free Groq key at [console.groq.com](https://console.groq.com) — no credit card needed.
 
----
-
-## Step 2 — Backend Setup
+### Step 2 — Backend
 
 ```bash
-# Go into the backend folder
 cd backend
 
-# Create a Python virtual environment (keeps things clean)
+# Windows
 python -m venv venv
-
-# Activate it
-# On Windows:
 venv\Scripts\activate
-# On Mac/Linux:
+
+# Mac/Linux
+python -m venv venv
 source venv/bin/activate
 
-# Install dependencies
+# Install & run
 pip install -r requirements.txt
-
-# Start the backend server
-python main.py
+python -m uvicorn main:app --reload --port 8000
 ```
 
-You should see:
-```
-INFO:     Uvicorn running on http://0.0.0.0:8000
-```
+Backend running at: `http://localhost:8000`
 
-Test it:
-```bash
-curl http://localhost:8000/health
-```
+### Step 3 — Frontend
 
----
-
-## Step 3 — Frontend Setup
-
-Open a NEW terminal window (keep backend running):
+Open a new terminal:
 
 ```bash
-# Go into the frontend folder
 cd frontend
-
-# Install Node.js packages
+echo "VITE_API_URL=http://localhost:8000" > .env
 npm install
-
-# Start the development server
 npm run dev
 ```
 
-You should see:
-```
-VITE v5.x.x  ready in xxx ms
-➜  Local:   http://localhost:5173/
-```
-
-Open your browser to: **http://localhost:5173**
+Open: **http://localhost:5173**
 
 ---
 
-## How to use
+## Using Ollama (fully local, no API key)
 
-1. Upload a resume (PDF, DOCX, or TXT)
-2. Paste the job description
-3. Click "Analyze Resume"
-4. Wait 15–60 seconds (Ollama processes locally)
-5. See the verdict: HIRE / MAYBE / NO_HIRE
+```bash
+# Install from https://ollama.com, then:
+ollama pull phi          # lightweight, fast
+ollama pull llama3.2     # better quality
+ollama serve
+```
 
-**Refresh the page = all data gone.** Nothing is stored anywhere.
+In `backend/.env`:
+```env
+AI_PROVIDER=ollama
+OLLAMA_MODEL=phi
+```
 
 ---
 
-## Changing the AI Model
+## How to Use
 
-In `backend/main.py`, find this line:
-```python
-OLLAMA_MODEL = "phi"
+1. Paste your **job description** on the left
+2. **Upload resumes** (PDF, DOCX, or TXT — up to 10 at once)
+3. Click **Analyze**
+4. Get a **ranked table** of candidates with scores
+5. Click any row for a full breakdown: skills, gaps, strengths, interview questions
+
+---
+
+## Deploy (Free)
+
+### Backend → [Railway](https://railway.app)
+1. Connect your GitHub repo
+2. Set Root Directory to `backend`
+3. Add environment variables (AI provider + key + CORS)
+4. Generate a public domain
+
+### Frontend → [Vercel](https://vercel.com)
+1. Connect your GitHub repo
+2. Set Root Directory to `frontend`
+3. Add `VITE_API_URL=https://your-railway-url.up.railway.app`
+4. Deploy — share the URL with your HR team
+
+---
+
+## Project Structure
+
 ```
-Change `"phi"` to any model you've pulled with `ollama pull`.
+ATS_Analyzer/
+├── backend/
+│   ├── main.py              # FastAPI app, scoring engine, AI providers
+│   ├── requirements.txt
+│   ├── .env.example         # Copy to .env and fill in your keys
+│   └── Dockerfile
+├── frontend/
+│   ├── src/App.jsx          # Full React UI
+│   ├── .env.example
+│   └── Dockerfile
+└── docker-compose.yml       # Run both with one command
+```
+
+## Docker (run both at once)
+
+```bash
+cp backend/.env.example backend/.env   # fill in your AI key
+docker-compose up --build
+# Frontend → http://localhost:3000
+# Backend  → http://localhost:8000
+```
 
 ---
 
@@ -120,8 +163,19 @@ Change `"phi"` to any model you've pulled with `ollama pull`.
 
 | Problem | Fix |
 |---------|-----|
-| "Cannot connect to Ollama" | Run `ollama serve` in a terminal |
-| "Model not found" | Run `ollama pull phi` |
-| Analysis takes forever | Try a smaller model like `phi3` |
-| PDF text is empty | The PDF might be image-only (scanned). Convert it to text first. |
-| CORS error in browser | Make sure backend is on port 8000 |
+| `pip` not found | Use `python -m pip install -r requirements.txt` |
+| CORS error in browser | Make sure `CORS_ORIGINS` in `.env` matches your frontend URL |
+| PDF shows empty | PDF is image-only (scanned). Convert to text first |
+| Ollama timeout | Try a smaller model: `ollama pull phi3` |
+| OpenAI 401 error | API key is wrong or missing from `backend/.env` |
+| "unrelated histories" on git push | Use `git push origin main --force` |
+
+---
+
+## Tech Stack
+
+**Frontend:** React 18 + Vite — no CSS framework, pure inline styles, zero extra dependencies
+
+**Backend:** FastAPI + Python — async, multi-resume batch endpoint, provider-agnostic AI calls
+
+**Scoring:** Rule-based HR engine (skill equivalence maps, domain clustering, seniority detection) + LLM qualitative evaluation
