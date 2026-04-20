@@ -1,0 +1,50 @@
+# Render.com deployment blueprint for the ICS Resume Analyzer backend.
+# Free tier — web service with 512 MB RAM, cold starts after 15 min idle.
+#
+# USAGE
+#   1. Push this repo to GitHub (icsprojects/ICSResumeAnalyzer).
+#   2. Go to https://dashboard.render.com → New → Blueprint → pick this repo.
+#   3. Render auto-detects this file and provisions the backend.
+#   4. In the service's Environment tab, paste your AI provider key
+#      (OPENAI_API_KEY or ANTHROPIC_API_KEY or GROQ_API_KEY) — marked
+#      `sync: false` below, so they are NOT committed.
+#   5. Once the frontend is deployed on Vercel, update CORS_ORIGINS with
+#      the Vercel URL and redeploy.
+
+services:
+  - type: web
+    name: ics-resume-analyzer-api
+    runtime: python
+    plan: free
+    region: oregon
+    rootDir: backend
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: AI_PROVIDER
+        value: openai
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: ANTHROPIC_MODEL
+        value: claude-haiku-4-5-20251001
+      - key: GROQ_MODEL
+        value: llama3-8b-8192
+      - key: MAX_RESUME_CHARS
+        value: "5000"
+      - key: MAX_JD_CHARS
+        value: "3000"
+      # Update this with your Vercel URL AFTER the frontend is deployed.
+      # Multiple origins are comma-separated. Local dev URLs stay for testing.
+      - key: CORS_ORIGINS
+        value: http://localhost:5173,http://localhost:3000,https://ics-resume-analyzer.vercel.app
+      # Secrets — paste values in the Render dashboard, never in git.
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false

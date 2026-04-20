@@ -1,112 +1,138 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 
-// ── Config (set VITE_API_URL in frontend/.env) ────────────────────────────────
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
-// ── Design tokens ─────────────────────────────────────────────────────────────
 const COLOR = {
-  primary:    "#4f46e5",
-  primaryDark:"#3730a3",
-  primaryLight:"#eef2ff",
-  hire:       "#16a34a",
-  hireBg:     "#f0fdf4",
-  hireBorder: "#86efac",
-  maybe:      "#d97706",
-  maybeBg:    "#fffbeb",
-  maybeBorder:"#fcd34d",
-  nohire:     "#dc2626",
-  nohireBg:   "#fef2f2",
-  nohireBorder:"#fca5a5",
-  gray50:     "#f8fafc",
-  gray100:    "#f1f5f9",
-  gray200:    "#e2e8f0",
-  gray400:    "#94a3b8",
-  gray500:    "#64748b",
-  gray700:    "#334155",
-  gray900:    "#0f172a",
-  white:      "#ffffff",
+  brand:        "#E31E24",
+  brandDark:    "#B91C1C",
+  brandLight:   "#FEE2E2",
+  brandBg:      "#FEF2F2",
+  bg:           "#FAFAFA",
+  bgSoft:       "#F6F7F9",
+  surface:      "#FFFFFF",
+  ink:          "#0B1220",
+  inkSoft:      "#334155",
+  muted:        "#64748B",
+  subtle:       "#94A3B8",
+  hairline:     "#E6E8EC",
+  hairlineSoft: "#F0F2F5",
+  indigo:       "#4F46E5",
+  indigoSoft:   "#EEF2FF",
+  hire:         "#16A34A",
+  hireBg:       "#ECFDF5",
+  hireBorder:   "#A7F3D0",
+  hireBadge:    "#DCFCE7",
+  hireBadgeText:"#15803D",
+  maybe:        "#D97706",
+  maybeBg:      "#FFFBEB",
+  maybeBorder:  "#FCD34D",
+  maybeBadge:   "#FEF3C7",
+  maybeBadgeText:"#A16207",
+  nohire:       "#DC2626",
+  nohireBg:     "#FEF2F2",
+  nohireBorder: "#FCA5A5",
+  nohireBadge:  "#FEE2E2",
+  nohireBadgeText:"#B91C1C",
+};
+
+const SHADOW = {
+  xs: "0 1px 2px rgba(15,23,42,0.05)",
+  sm: "0 2px 6px rgba(15,23,42,0.06)",
+  md: "0 6px 18px rgba(15,23,42,0.08)",
+  lg: "0 20px 48px rgba(15,23,42,0.12)",
+  brand: "0 10px 28px rgba(227,30,36,0.28)",
 };
 
 const VERDICT = {
-  HIRE:    { label: "Recommended",      color: COLOR.hire,   bg: COLOR.hireBg,   border: COLOR.hireBorder,   icon: "✓", badge: "#dcfce7", badgeText: "#15803d" },
-  MAYBE:   { label: "Review Needed",    color: COLOR.maybe,  bg: COLOR.maybeBg,  border: COLOR.maybeBorder,  icon: "~", badge: "#fef9c3", badgeText: "#a16207" },
-  NO_HIRE: { label: "Not Recommended",  color: COLOR.nohire, bg: COLOR.nohireBg, border: COLOR.nohireBorder, icon: "✕", badge: "#fee2e2", badgeText: "#b91c1c" },
+  HIRE:    { label: "Recommended",     color: COLOR.hire,   bg: COLOR.hireBg,   border: COLOR.hireBorder,   icon: "\u2713", badge: COLOR.hireBadge,   badgeText: COLOR.hireBadgeText   },
+  MAYBE:   { label: "Review Needed",   color: COLOR.maybe,  bg: COLOR.maybeBg,  border: COLOR.maybeBorder,  icon: "~",      badge: COLOR.maybeBadge,  badgeText: COLOR.maybeBadgeText  },
+  NO_HIRE: { label: "Not Recommended", color: COLOR.nohire, bg: COLOR.nohireBg, border: COLOR.nohireBorder, icon: "\u2715", badge: COLOR.nohireBadge, badgeText: COLOR.nohireBadgeText },
 };
 
-// ── Tiny reusable components ──────────────────────────────────────────────────
-const ScoreRing = ({ score, color, size = 64 }) => {
-  const r = (size - 8) / 2;
+const IcsLogo = ({ height = 34 }) => {
+  const [src, setSrc] = useState("/logo.png");
+  return (
+    <img src={src} onError={() => setSrc("/logo.svg")} alt="ICS"
+      style={{ height, width: "auto", display: "block" }} />
+  );
+};
+
+const ScoreRing = ({ score, color, size = 64, stroke = 6 }) => {
+  const r = (size - stroke) / 2;
   const circ = 2 * Math.PI * r;
-  const fill = (score / 100) * circ;
+  const fill = (Math.max(0, Math.min(100, score)) / 100) * circ;
   return (
     <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={COLOR.gray200} strokeWidth={5} />
-      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={5}
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={COLOR.hairlineSoft} strokeWidth={stroke} />
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={stroke}
         strokeDasharray={`${fill} ${circ}`} strokeLinecap="round"
-        style={{ transition: "stroke-dasharray 0.8s ease" }} />
+        style={{ transition: "stroke-dasharray 0.9s cubic-bezier(.2,.8,.2,1)" }} />
     </svg>
   );
 };
 
-const ScoreBar = ({ value, label, color = COLOR.primary }) => (
-  <div style={{ marginBottom: 10 }}>
-    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-      <span style={{ fontSize:12, color:COLOR.gray500, fontWeight:500 }}>{label}</span>
+const ScoreBar = ({ value, label, color = COLOR.indigo }) => (
+  <div style={{ marginBottom: 12 }}>
+    <div style={{ display:"flex", justifyContent:"space-between", marginBottom:5 }}>
+      <span style={{ fontSize:12, color:COLOR.muted, fontWeight:500 }}>{label}</span>
       <span style={{ fontSize:12, fontWeight:700, color }}>{value}%</span>
     </div>
-    <div style={{ height:6, background:COLOR.gray100, borderRadius:99, overflow:"hidden" }}>
+    <div style={{ height:6, background:COLOR.hairlineSoft, borderRadius:99, overflow:"hidden" }}>
       <div style={{ height:"100%", borderRadius:99, background:color,
-        width:`${value}%`, transition:"width 1s ease" }} />
+        width:`${Math.max(0, Math.min(100, value))}%`, transition:"width 1s cubic-bezier(.2,.8,.2,1)" }} />
     </div>
   </div>
 );
 
 const Tag = ({ text, variant = "blue" }) => {
   const variants = {
-    blue:   { bg:"#dbeafe", color:"#1d4ed8" },
-    green:  { bg:"#dcfce7", color:"#15803d" },
-    red:    { bg:"#fee2e2", color:"#b91c1c" },
-    purple: { bg:"#ede9fe", color:"#6d28d9" },
-    gray:   { bg:COLOR.gray100, color:COLOR.gray700 },
+    blue:   { bg:"#DBEAFE", color:"#1D4ED8" },
+    green:  { bg:"#DCFCE7", color:"#15803D" },
+    red:    { bg:"#FEE2E2", color:"#B91C1C" },
+    purple: { bg:"#EDE9FE", color:"#6D28D9" },
+    brand:  { bg: COLOR.brandLight, color: COLOR.brandDark },
+    gray:   { bg: COLOR.hairlineSoft, color: COLOR.inkSoft },
   };
   const s = variants[variant] || variants.gray;
   return (
-    <span style={{ display:"inline-block", padding:"2px 9px", borderRadius:99,
-      fontSize:11, fontWeight:600, margin:"2px 3px 2px 0",
-      background:s.bg, color:s.color }}>
-      {text}
-    </span>
+    <span style={{ display:"inline-block", padding:"3px 10px", borderRadius:99,
+      fontSize:11.5, fontWeight:600, margin:"2px 4px 2px 0",
+      background:s.bg, color:s.color, letterSpacing:.1 }}>{text}</span>
   );
 };
 
 const Badge = ({ text, color, bg }) => (
-  <span style={{ padding:"3px 10px", borderRadius:99, fontSize:11, fontWeight:700,
-    background:bg, color, letterSpacing:0.3 }}>{text}</span>
+  <span style={{ padding:"4px 11px", borderRadius:99, fontSize:11, fontWeight:700,
+    background:bg, color, letterSpacing:0.3, textTransform:"uppercase" }}>{text}</span>
 );
 
-const Card = ({ children, style = {} }) => (
-  <div style={{ background:COLOR.white, borderRadius:14, border:`1px solid ${COLOR.gray200}`,
-    boxShadow:"0 1px 3px rgba(0,0,0,0.06)", padding:20, ...style }}>
-    {children}
-  </div>
+const Card = ({ children, style = {}, hoverable = false }) => (
+  <div
+    style={{
+      background:COLOR.surface, borderRadius:16,
+      border:`1px solid ${COLOR.hairline}`, boxShadow:SHADOW.xs, padding:22,
+      transition:"box-shadow .2s, transform .2s", ...style,
+    }}
+    onMouseEnter={hoverable ? (e) => { e.currentTarget.style.boxShadow = SHADOW.md; } : undefined}
+    onMouseLeave={hoverable ? (e) => { e.currentTarget.style.boxShadow = SHADOW.xs; } : undefined}
+  >{children}</div>
 );
 
-const SectionTitle = ({ children, color = COLOR.gray900 }) => (
-  <div style={{ fontSize:13, fontWeight:700, color, marginBottom:10, letterSpacing:0.2 }}>{children}</div>
+const SectionTitle = ({ children, color = COLOR.ink, style = {} }) => (
+  <div style={{ fontSize:13, fontWeight:700, color, marginBottom:12, letterSpacing:0.2, ...style }}>{children}</div>
 );
 
-// ── Upload zone ────────────────────────────────────────────────────────────────
 const UploadZone = ({ files, onFiles, onRemove }) => {
   const [drag, setDrag] = useState(false);
   const inputRef = useRef();
-
   const accept = useCallback((list) => {
     const allowed = [".pdf",".docx",".txt"];
     const valid = Array.from(list).filter(f => allowed.includes("." + f.name.split(".").pop().toLowerCase()));
     if (valid.length !== list.length) alert("Only PDF, DOCX, and TXT files are supported.");
     onFiles(valid);
   }, [onFiles]);
-
+  const borderColor = drag ? COLOR.brand : files.length ? COLOR.hire : COLOR.hairline;
+  const bg = drag ? COLOR.brandBg : files.length ? COLOR.hireBg : COLOR.bgSoft;
   return (
     <div>
       <div
@@ -115,21 +141,26 @@ const UploadZone = ({ files, onFiles, onRemove }) => {
         onDragOver={e => { e.preventDefault(); setDrag(true); }}
         onDragLeave={() => setDrag(false)}
         style={{
-          border:`2px dashed ${drag ? COLOR.primary : files.length ? "#22c55e" : COLOR.gray200}`,
-          borderRadius:12, padding:"28px 20px", textAlign:"center",
-          cursor:"pointer", background: drag ? COLOR.primaryLight : files.length ? "#f0fdf4" : COLOR.gray50,
-          transition:"all 0.2s",
+          border:`1.5px dashed ${borderColor}`,
+          borderRadius:14, padding:"32px 20px", textAlign:"center",
+          cursor:"pointer", background: bg, transition:"all 0.2s",
         }}
       >
-        <div style={{ fontSize:32, marginBottom:6 }}>{files.length ? "📂" : "⬆️"}</div>
+        <div style={{
+          width:56, height:56, margin:"0 auto 10px",
+          borderRadius:14, background: files.length ? COLOR.hire : COLOR.brand,
+          color:COLOR.surface, display:"flex", alignItems:"center", justifyContent:"center",
+          fontSize:26, fontWeight:800,
+          boxShadow: files.length ? "0 6px 18px rgba(22,163,74,.28)" : SHADOW.brand,
+        }}>{files.length ? "\u2713" : "+"}</div>
         {files.length === 0 ? (
           <>
-            <div style={{ fontWeight:600, color:COLOR.gray700, fontSize:14 }}>Drop resumes here or click to browse</div>
-            <div style={{ fontSize:12, color:COLOR.gray400, marginTop:4 }}>PDF, DOCX, TXT · Max 10 resumes · 5MB each</div>
+            <div style={{ fontWeight:600, color:COLOR.ink, fontSize:14 }}>Drop resumes here or click to browse</div>
+            <div style={{ fontSize:12, color:COLOR.subtle, marginTop:4 }}>PDF, DOCX, TXT {"\u00b7"} Max 10 resumes {"\u00b7"} 5 MB each</div>
           </>
         ) : (
-          <div style={{ fontWeight:600, color:"#15803d", fontSize:14 }}>
-            {files.length} resume{files.length > 1 ? "s" : ""} selected · Click to add more
+          <div style={{ fontWeight:600, color:COLOR.hireBadgeText, fontSize:14 }}>
+            {files.length} resume{files.length > 1 ? "s" : ""} selected {"\u00b7"} Click to add more
           </div>
         )}
       </div>
@@ -137,22 +168,26 @@ const UploadZone = ({ files, onFiles, onRemove }) => {
         style={{ display:"none" }} onChange={e => accept(e.target.files)} />
 
       {files.length > 0 && (
-        <div style={{ marginTop:10, display:"flex", flexDirection:"column", gap:6 }}>
+        <div style={{ marginTop:12, display:"flex", flexDirection:"column", gap:6 }}>
           {files.map((f, i) => (
             <div key={i} style={{
               display:"flex", alignItems:"center", justifyContent:"space-between",
-              background:COLOR.gray50, borderRadius:8, padding:"8px 12px",
-              border:`1px solid ${COLOR.gray200}`, fontSize:13,
+              background:COLOR.surface, borderRadius:10, padding:"10px 14px",
+              border:`1px solid ${COLOR.hairline}`, fontSize:13,
             }}>
-              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <span>📄</span>
-                <span style={{ fontWeight:500, color:COLOR.gray700 }}>{f.name}</span>
-                <span style={{ color:COLOR.gray400, fontSize:11 }}>{(f.size/1024).toFixed(0)} KB</span>
+              <div style={{ display:"flex", alignItems:"center", gap:10, minWidth:0 }}>
+                <span style={{
+                  width:26, height:26, borderRadius:6, background:COLOR.brandLight,
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  fontSize:11, fontWeight:800, color:COLOR.brand,
+                }}>{f.name.split(".").pop().toUpperCase().slice(0,3)}</span>
+                <span style={{ fontWeight:500, color:COLOR.inkSoft, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{f.name}</span>
+                <span style={{ color:COLOR.subtle, fontSize:11, flexShrink:0 }}>{(f.size/1024).toFixed(0)} KB</span>
               </div>
-              <button onClick={() => onRemove(i)} style={{
+              <button onClick={(e) => { e.stopPropagation(); onRemove(i); }} style={{
                 border:"none", background:"none", cursor:"pointer",
-                color:COLOR.gray400, fontSize:16, padding:"0 4px", lineHeight:1
-              }}>×</button>
+                color:COLOR.subtle, fontSize:18, padding:"0 4px", lineHeight:1
+              }}>{"\u00d7"}</button>
             </div>
           ))}
         </div>
@@ -161,53 +196,50 @@ const UploadZone = ({ files, onFiles, onRemove }) => {
   );
 };
 
-// ── Results table row ──────────────────────────────────────────────────────────
 const ResultRow = ({ result, rank, onSelect, isSelected }) => {
   const vc = VERDICT[result.verdict] || VERDICT.MAYBE;
   const score = result.match_score;
   const scoreColor = score >= 75 ? COLOR.hire : score >= 55 ? COLOR.maybe : COLOR.nohire;
-
   return (
     <tr
       onClick={() => onSelect(result)}
       style={{
         cursor:"pointer", transition:"background 0.15s",
-        background: isSelected ? COLOR.primaryLight : "transparent",
-        borderBottom:`1px solid ${COLOR.gray100}`,
+        background: isSelected ? COLOR.brandBg : "transparent",
+        borderBottom:`1px solid ${COLOR.hairlineSoft}`,
       }}
-      onMouseEnter={e => { if(!isSelected) e.currentTarget.style.background = COLOR.gray50; }}
+      onMouseEnter={e => { if(!isSelected) e.currentTarget.style.background = COLOR.bgSoft; }}
       onMouseLeave={e => { if(!isSelected) e.currentTarget.style.background = "transparent"; }}
     >
-      <td style={{ padding:"12px 16px", fontWeight:700, color:COLOR.gray400, fontSize:13 }}>#{rank}</td>
-      <td style={{ padding:"12px 16px" }}>
-        <div style={{ fontWeight:700, color:COLOR.gray900, fontSize:14 }}>{result.candidate_name}</div>
-        <div style={{ fontSize:11, color:COLOR.gray400, marginTop:1 }}>{result.filename}</div>
+      <td style={{ padding:"14px 16px", fontWeight:800, color:COLOR.subtle, fontSize:13 }}>#{rank}</td>
+      <td style={{ padding:"14px 16px" }}>
+        <div style={{ fontWeight:700, color:COLOR.ink, fontSize:14 }}>{result.candidate_name}</div>
+        <div style={{ fontSize:11, color:COLOR.subtle, marginTop:2 }}>{result.filename}</div>
       </td>
-      <td style={{ padding:"12px 16px" }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          <ScoreRing score={score} color={scoreColor} size={40} />
-          <div style={{ textAlign:"center", minWidth:24 }}>
-            <div style={{ fontSize:16, fontWeight:800, color:scoreColor, lineHeight:1 }}>{score}</div>
-            <div style={{ fontSize:9, color:COLOR.gray400, marginTop:1 }}>/ 100</div>
+      <td style={{ padding:"14px 16px" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+          <ScoreRing score={score} color={scoreColor} size={42} stroke={5} />
+          <div style={{ minWidth:28 }}>
+            <div style={{ fontSize:17, fontWeight:900, color:scoreColor, lineHeight:1 }}>{score}</div>
+            <div style={{ fontSize:9, color:COLOR.subtle, marginTop:1 }}>/ 100</div>
           </div>
         </div>
       </td>
-      <td style={{ padding:"12px 16px" }}>
+      <td style={{ padding:"14px 16px" }}>
         <Badge text={vc.label} color={vc.badgeText} bg={vc.badge} />
       </td>
-      <td style={{ padding:"12px 16px", maxWidth:300 }}>
-        <div style={{ fontSize:12, color:COLOR.gray500, lineHeight:1.5 }}>
-          {(result.summary || "").slice(0, 120)}{result.summary?.length > 120 ? "…" : ""}
+      <td style={{ padding:"14px 16px", maxWidth:320 }}>
+        <div style={{ fontSize:12.5, color:COLOR.muted, lineHeight:1.55 }}>
+          {(result.summary || "").slice(0, 130)}{result.summary?.length > 130 ? "\u2026" : ""}
         </div>
       </td>
-      <td style={{ padding:"12px 16px" }}>
-        <div style={{ fontSize:12, color:COLOR.primary, fontWeight:600 }}>View →</div>
+      <td style={{ padding:"14px 16px" }}>
+        <div style={{ fontSize:12, color:COLOR.brand, fontWeight:700 }}>View {"\u2192"}</div>
       </td>
     </tr>
   );
 };
 
-// ── Detail panel ───────────────────────────────────────────────────────────────
 const DetailPanel = ({ result, onClose }) => {
   if (!result) return null;
   const vc = VERDICT[result.verdict] || VERDICT.MAYBE;
@@ -217,124 +249,122 @@ const DetailPanel = ({ result, onClose }) => {
 
   return (
     <div style={{
-      position:"fixed", top:0, right:0, bottom:0, width:"min(560px, 100vw)",
-      background:COLOR.white, boxShadow:"-4px 0 24px rgba(0,0,0,0.12)",
-      zIndex:100, overflowY:"auto", display:"flex", flexDirection:"column",
+      background:COLOR.surface, borderRadius:16,
+      border:`1px solid ${COLOR.hairline}`,
+      boxShadow: SHADOW.md,
+      overflow:"hidden", animation:"slideUp .3s ease",
     }}>
-      {/* Panel header */}
       <div style={{
-        padding:"20px 24px 16px", borderBottom:`1px solid ${COLOR.gray200}`,
-        background:vc.bg, position:"sticky", top:0, zIndex:1,
+        padding:"22px 24px 18px",
+        background:`linear-gradient(180deg, ${vc.bg} 0%, ${COLOR.surface} 100%)`,
+        borderBottom:`1px solid ${COLOR.hairline}`,
       }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-          <div>
-            <div style={{ fontSize:11, color:COLOR.gray500, fontWeight:600, textTransform:"uppercase", letterSpacing:1, marginBottom:4 }}>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:12 }}>
+          <div style={{ minWidth:0 }}>
+            <div style={{ fontSize:10, color:vc.badgeText, fontWeight:800, textTransform:"uppercase", letterSpacing:1.2, marginBottom:6 }}>
               Analysis Report
             </div>
-            <div style={{ fontSize:20, fontWeight:800, color:COLOR.gray900 }}>{result.candidate_name}</div>
-            <div style={{ fontSize:12, color:COLOR.gray500, marginTop:2 }}>{result.filename}</div>
+            <div style={{ fontSize:20, fontWeight:800, color:COLOR.ink, letterSpacing:-.3 }}>{result.candidate_name}</div>
+            <div style={{ fontSize:12, color:COLOR.subtle, marginTop:3 }}>{result.filename}</div>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:12 }}>
             <div style={{ textAlign:"center" }}>
-              <div style={{ fontSize:36, fontWeight:900, color:scoreColor, lineHeight:1 }}>{score}</div>
-              <div style={{ fontSize:10, color:COLOR.gray400 }}>Match Score</div>
+              <div style={{ fontSize:34, fontWeight:900, color:scoreColor, lineHeight:1, letterSpacing:-1 }}>{score}</div>
+              <div style={{ fontSize:10, color:COLOR.subtle, fontWeight:600, marginTop:2 }}>MATCH</div>
             </div>
             <button onClick={onClose} style={{
-              border:"none", background:COLOR.gray100, cursor:"pointer",
-              width:32, height:32, borderRadius:99, fontSize:18, color:COLOR.gray500,
-              display:"flex", alignItems:"center", justifyContent:"center"
-            }}>×</button>
+              border:"none", background:COLOR.surface, cursor:"pointer",
+              width:32, height:32, borderRadius:99, fontSize:18, color:COLOR.muted,
+              display:"flex", alignItems:"center", justifyContent:"center",
+              boxShadow: SHADOW.xs,
+            }}>{"\u00d7"}</button>
           </div>
         </div>
-        <div style={{ marginTop:10, display:"flex", gap:6, flexWrap:"wrap" }}>
+        <div style={{ marginTop:12, display:"flex", gap:6, flexWrap:"wrap" }}>
           <Badge text={vc.label} color={vc.badgeText} bg={vc.badge} />
-          <Badge text={`Confidence: ${result.confidence}`} color={COLOR.gray700} bg={COLOR.gray100} />
+          <Badge text={`Conf: ${result.confidence}`} color={COLOR.inkSoft} bg={COLOR.hairlineSoft} />
           {(result.flags || []).map((f, i) => (
-            <Badge key={i} text={f.replace(/_/g," ")} color="#7c2d12" bg="#fee2e2" />
+            <Badge key={i} text={f.replace(/_/g," ")} color={COLOR.brand} bg={COLOR.brandLight} />
           ))}
         </div>
       </div>
 
-      <div style={{ padding:"20px 24px", flex:1 }}>
-        {/* Summary */}
-        <Card style={{ marginBottom:16 }}>
-          <SectionTitle>💬 Summary</SectionTitle>
-          <p style={{ margin:0, fontSize:13, color:COLOR.gray700, lineHeight:1.7 }}>{result.summary}</p>
+      <div style={{ padding:"20px 24px" }}>
+        <Card style={{ marginBottom:14 }}>
+          <SectionTitle>Summary</SectionTitle>
+          <p style={{ margin:0, fontSize:13.5, color:COLOR.inkSoft, lineHeight:1.7 }}>{result.summary}</p>
         </Card>
 
-        {/* Score breakdown */}
-        <Card style={{ marginBottom:16 }}>
-          <SectionTitle>📊 Score Breakdown</SectionTitle>
-          <ScoreBar value={score} label="Overall Match"
-            color={scoreColor} />
-          <ScoreBar value={breakdown.skill_match || 0} label="Skill Match" color="#4f46e5" />
-          <ScoreBar value={breakdown.seniority_match || 0} label="Seniority Fit" color="#0891b2" />
-          <ScoreBar value={breakdown.domain_match || 0} label="Domain Alignment" color="#7c3aed" />
-          <ScoreBar value={breakdown.education_match || 0} label="Education Match" color="#059669" />
+        <Card style={{ marginBottom:14 }}>
+          <SectionTitle>Score Breakdown</SectionTitle>
+          <ScoreBar value={score} label="Overall Match" color={scoreColor} />
+          <ScoreBar value={breakdown.skill_match || 0} label="Skill Match" color={COLOR.brand} />
+          <ScoreBar value={breakdown.seniority_match || 0} label="Seniority Fit" color={COLOR.indigo} />
+          <ScoreBar value={breakdown.domain_match || 0} label="Domain Alignment" color="#7C3AED" />
+          <ScoreBar value={breakdown.education_match || 0} label="Education Match" color={COLOR.hire} />
         </Card>
 
-        {/* Strengths + Gaps */}
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:16 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:14 }}>
           <Card>
-            <SectionTitle color="#15803d">💪 Strengths</SectionTitle>
+            <SectionTitle color={COLOR.hireBadgeText}>Strengths</SectionTitle>
             {(result.strengths || []).length ? (
               (result.strengths).map((s, i) => (
-                <div key={i} style={{ fontSize:12, color:COLOR.gray700, marginBottom:5, lineHeight:1.5 }}>
-                  <span style={{ color:"#15803d" }}>✓</span> {s}
+                <div key={i} style={{ fontSize:12.5, color:COLOR.inkSoft, marginBottom:7, lineHeight:1.55, display:"flex", gap:7 }}>
+                  <span style={{ color:COLOR.hire, fontWeight:900, flexShrink:0 }}>{"\u2713"}</span><span>{s}</span>
                 </div>
               ))
-            ) : <div style={{ fontSize:12, color:COLOR.gray400 }}>None identified</div>}
+            ) : <div style={{ fontSize:12, color:COLOR.subtle }}>None identified</div>}
           </Card>
           <Card>
-            <SectionTitle color="#b91c1c">⚠️ Gaps</SectionTitle>
+            <SectionTitle color={COLOR.nohireBadgeText}>Gaps</SectionTitle>
             {(result.gaps || []).length ? (
               (result.gaps).map((g, i) => (
-                <div key={i} style={{ fontSize:12, color:COLOR.gray700, marginBottom:5, lineHeight:1.5 }}>
-                  <span style={{ color:COLOR.nohire }}>✕</span> {g}
+                <div key={i} style={{ fontSize:12.5, color:COLOR.inkSoft, marginBottom:7, lineHeight:1.55, display:"flex", gap:7 }}>
+                  <span style={{ color:COLOR.nohire, fontWeight:900, flexShrink:0 }}>{"\u2715"}</span><span>{g}</span>
                 </div>
               ))
-            ) : <div style={{ fontSize:12, color:COLOR.gray400 }}>No significant gaps</div>}
+            ) : <div style={{ fontSize:12, color:COLOR.subtle }}>No significant gaps</div>}
           </Card>
         </div>
 
-        {/* Skills */}
-        <Card style={{ marginBottom:16 }}>
-          <SectionTitle>🛠 Skills Found</SectionTitle>
-          {(result.key_skills_found || []).map((s, i) => <Tag key={i} text={s} variant="blue" />)}
-          {!(result.key_skills_found?.length) && <div style={{ fontSize:12, color:COLOR.gray400 }}>None matched</div>}
+        <Card style={{ marginBottom:14 }}>
+          <SectionTitle>Skills Found</SectionTitle>
+          {(result.key_skills_found || []).map((s, i) => <Tag key={i} text={s} variant="brand" />)}
+          {!(result.key_skills_found?.length) && <div style={{ fontSize:12, color:COLOR.subtle }}>None matched</div>}
           {(result.missing_skills || []).length > 0 && (
             <>
-              <div style={{ fontSize:12, color:COLOR.gray500, marginTop:10, marginBottom:4, fontWeight:600 }}>Missing</div>
+              <div style={{ fontSize:12, color:COLOR.muted, marginTop:12, marginBottom:6, fontWeight:600 }}>Missing</div>
               {(result.missing_skills).map((s, i) => <Tag key={i} text={s} variant="red" />)}
             </>
           )}
         </Card>
 
-        {/* Recommendation */}
-        <Card style={{ marginBottom:16, background: score >= 75 ? COLOR.hireBg : score >= 55 ? COLOR.maybeBg : COLOR.nohireBg }}>
-          <SectionTitle>💡 Recommendation</SectionTitle>
-          <p style={{ margin:0, fontSize:13, color:COLOR.gray700, lineHeight:1.7 }}>{result.recommendation}</p>
-          <div style={{ marginTop:8, fontSize:11, color:COLOR.gray400 }}>AI Provider: {result.ai_provider}</div>
+        <Card style={{
+          marginBottom:14,
+          background: score >= 75 ? COLOR.hireBg : score >= 55 ? COLOR.maybeBg : COLOR.nohireBg,
+          borderColor: score >= 75 ? COLOR.hireBorder : score >= 55 ? COLOR.maybeBorder : COLOR.nohireBorder,
+        }}>
+          <SectionTitle>Recommendation</SectionTitle>
+          <p style={{ margin:0, fontSize:13.5, color:COLOR.inkSoft, lineHeight:1.7 }}>{result.recommendation}</p>
+          <div style={{ marginTop:10, fontSize:11, color:COLOR.subtle }}>AI Provider: {result.ai_provider}</div>
         </Card>
 
-        {/* Interview Questions */}
-        <Card style={{ marginBottom:16 }}>
-          <SectionTitle>🎤 Interview Questions</SectionTitle>
+        <Card style={{ marginBottom:14 }}>
+          <SectionTitle>Interview Questions</SectionTitle>
           {(result.interview_questions || []).map((q, i) => (
             <div key={i} style={{
-              padding:"10px 12px", borderRadius:8, background:COLOR.gray50,
-              marginBottom:8, fontSize:13, color:COLOR.gray700, lineHeight:1.5,
-              borderLeft:`3px solid ${COLOR.primary}`
+              padding:"12px 14px", borderRadius:10, background:COLOR.bgSoft,
+              marginBottom:8, fontSize:13, color:COLOR.inkSoft, lineHeight:1.55,
+              borderLeft:`3px solid ${COLOR.brand}`
             }}>
-              <span style={{ fontWeight:700, color:COLOR.primary }}>Q{i+1}. </span>{q}
+              <span style={{ fontWeight:700, color:COLOR.brand }}>Q{i+1}. </span>{q}
             </div>
           ))}
         </Card>
 
-        {/* Candidate extract */}
         {result.extracted_resume && (
-          <Card style={{ marginBottom:16 }}>
-            <SectionTitle>👤 Extracted Profile</SectionTitle>
+          <Card style={{ marginBottom:4 }}>
+            <SectionTitle>Extracted Profile</SectionTitle>
             {[
               ["Role", result.extracted_resume.current_or_last_role],
               ["Experience", result.extracted_resume.years_of_experience != null ? `${result.extracted_resume.years_of_experience} years` : null],
@@ -342,9 +372,9 @@ const DetailPanel = ({ result, onClose }) => {
               ["Education", result.extracted_resume.education],
               ["Seniority", result.extracted_resume.seniority_in_resume],
             ].filter(([,v]) => v).map(([k, v]) => (
-              <div key={k} style={{ display:"flex", gap:8, marginBottom:4, fontSize:12 }}>
-                <span style={{ color:COLOR.gray400, minWidth:80 }}>{k}</span>
-                <span style={{ color:COLOR.gray700, fontWeight:500 }}>{v}</span>
+              <div key={k} style={{ display:"flex", gap:10, marginBottom:6, fontSize:12.5 }}>
+                <span style={{ color:COLOR.subtle, minWidth:92, fontWeight:600, textTransform:"uppercase", fontSize:10.5, letterSpacing:.5 }}>{k}</span>
+                <span style={{ color:COLOR.inkSoft, fontWeight:500 }}>{v}</span>
               </div>
             ))}
           </Card>
@@ -354,37 +384,42 @@ const DetailPanel = ({ result, onClose }) => {
   );
 };
 
-// ── Loading animation ─────────────────────────────────────────────────────────
 const LoadingView = ({ total, done }) => (
-  <div style={{ textAlign:"center", padding:"60px 20px" }}>
-    <div style={{ fontSize:52, marginBottom:16 }}>🧠</div>
-    <div style={{ fontSize:20, fontWeight:700, color:COLOR.gray900, marginBottom:8 }}>
-      Analyzing Resumes…
+  <div style={{ textAlign:"center", padding:"80px 20px" }}>
+    <div style={{ width:72, height:72, margin:"0 auto 20px", position:"relative" }}>
+      <div style={{
+        width:72, height:72, borderRadius:99,
+        border:`4px solid ${COLOR.brandLight}`,
+        borderTopColor: COLOR.brand,
+        animation: "spin 1s linear infinite",
+      }} />
+    </div>
+    <div style={{ fontSize:22, fontWeight:800, color:COLOR.ink, marginBottom:8, letterSpacing:-.3 }}>
+      Analyzing resumes
     </div>
     {total > 1 && (
-      <div style={{ fontSize:14, color:COLOR.gray500, marginBottom:20 }}>
+      <div style={{ fontSize:13, color:COLOR.muted, marginBottom:20 }}>
         {done} of {total} completed
       </div>
     )}
     <div style={{
-      width:200, height:6, background:COLOR.gray200, borderRadius:99,
-      margin:"0 auto 20px", overflow:"hidden"
+      width:240, height:6, background:COLOR.hairlineSoft, borderRadius:99,
+      margin:"0 auto 18px", overflow:"hidden"
     }}>
       <div style={{
-        height:"100%", borderRadius:99, background:COLOR.primary,
+        height:"100%", borderRadius:99,
+        background: `linear-gradient(90deg, ${COLOR.brand}, ${COLOR.brandDark})`,
         width: total > 1 ? `${(done/total)*100}%` : "60%",
         transition:"width 0.5s ease",
         animation: total <= 1 ? "pulse 1.5s ease-in-out infinite" : "none",
       }} />
     </div>
-    <div style={{ fontSize:13, color:COLOR.gray400 }}>
-      Reading resume · Comparing with JD · Scoring
+    <div style={{ fontSize:13, color:COLOR.subtle }}>
+      Reading resume {"\u00b7"} Comparing with JD {"\u00b7"} Scoring
     </div>
-    <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }`}</style>
   </div>
 );
 
-// ── Main App ──────────────────────────────────────────────────────────────────
 export default function App() {
   const [files, setFiles]         = useState([]);
   const [jd, setJd]               = useState("");
@@ -393,7 +428,14 @@ export default function App() {
   const [loading, setLoading]     = useState(false);
   const [loadDone, setLoadDone]   = useState(0);
   const [error, setError]         = useState("");
-  const [phase, setPhase]         = useState("input"); // input | results
+  const [phase, setPhase]         = useState("input");
+  const [narrow, setNarrow]       = useState(typeof window !== "undefined" ? window.innerWidth < 1024 : false);
+
+  useEffect(() => {
+    const onResize = () => setNarrow(window.innerWidth < 1024);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const addFiles = (incoming) => {
     setFiles(prev => {
@@ -446,103 +488,134 @@ export default function App() {
   const noCount    = results.filter(r => r.verdict === "NO_HIRE").length;
 
   return (
-    <div style={{ minHeight:"100vh", background:COLOR.gray50, fontFamily:"'Inter',system-ui,sans-serif", color:COLOR.gray900 }}>
-
-      {/* ── Header ────────────────────────────────────────────────────────────── */}
+    <div style={{ minHeight:"100vh", background:COLOR.bg, color:COLOR.ink }}>
       <header style={{
-        background:COLOR.white, borderBottom:`1px solid ${COLOR.gray200}`,
-        padding:"0 32px", display:"flex", alignItems:"center",
-        justifyContent:"space-between", height:62,
+        background:COLOR.surface,
+        borderBottom:`1px solid ${COLOR.hairline}`,
+        padding:"0 28px", display:"flex", alignItems:"center",
+        justifyContent:"space-between", height:64,
         position:"sticky", top:0, zIndex:50,
-        boxShadow:"0 1px 3px rgba(0,0,0,0.04)"
+        backdropFilter:"saturate(180%) blur(8px)",
       }}>
-        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-          <div style={{
-            width:38, height:38, borderRadius:10, background:"linear-gradient(135deg,#4f46e5,#7c3aed)",
-            display:"flex", alignItems:"center", justifyContent:"center", fontSize:18,
-          }}>⚡</div>
+        <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+          <IcsLogo height={34} />
+          <div style={{ width:1, height:26, background:COLOR.hairline, margin:"0 2px" }} />
           <div>
-            <div style={{ fontWeight:800, fontSize:16, letterSpacing:-0.3 }}>ATS Resume Analyzer</div>
-            <div style={{ fontSize:11, color:COLOR.gray400 }}>Powered by AI · HR-Grade Scoring</div>
+            <div style={{ fontWeight:800, fontSize:15, letterSpacing:-0.3, color: COLOR.ink }}>Resume Analyzer</div>
+            <div style={{ fontSize:11, color:COLOR.muted, marginTop:1, fontWeight:500 }}>AI-powered candidate screening</div>
           </div>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
           {phase === "results" && (
             <button onClick={handleReset} style={{
-              background:"none", border:`1px solid ${COLOR.gray200}`, borderRadius:8,
-              padding:"6px 14px", fontSize:13, cursor:"pointer", color:COLOR.gray700, fontWeight:500
-            }}>← New Analysis</button>
+              background:COLOR.surface, border:`1px solid ${COLOR.hairline}`, borderRadius:8,
+              padding:"7px 14px", fontSize:13, cursor:"pointer", color:COLOR.inkSoft, fontWeight:600,
+              transition:"all .15s",
+            }}
+              onMouseEnter={e => { e.currentTarget.style.background = COLOR.bgSoft; }}
+              onMouseLeave={e => { e.currentTarget.style.background = COLOR.surface; }}
+            >{"\u2190"} New analysis</button>
           )}
           <div style={{
-            fontSize:11, color:COLOR.gray500, background:COLOR.gray100,
-            padding:"5px 12px", borderRadius:99, fontWeight:500
-          }}>🔒 No data stored</div>
+            fontSize:11, color:COLOR.muted, background:COLOR.bgSoft,
+            padding:"6px 12px", borderRadius:99, fontWeight:600,
+            display:"flex", alignItems:"center", gap:6,
+            border:`1px solid ${COLOR.hairline}`,
+          }}>
+            <span style={{ width:6, height:6, borderRadius:99, background: COLOR.hire, boxShadow:"0 0 0 2px rgba(22,163,74,.18)" }} />
+            No data stored
+          </div>
         </div>
       </header>
 
-      {/* ── Error banner ─────────────────────────────────────────────────────── */}
       {error && (
         <div style={{
-          background:"#fef2f2", borderBottom:`1px solid ${COLOR.nohireBorder}`, color:"#991b1b",
-          padding:"10px 32px", fontSize:13, display:"flex", justifyContent:"space-between", alignItems:"center"
+          background:COLOR.nohireBg, borderBottom:`1px solid ${COLOR.nohireBorder}`, color:COLOR.nohireBadgeText,
+          padding:"11px 28px", fontSize:13, display:"flex", justifyContent:"space-between", alignItems:"center"
         }}>
-          <span>⚠️ {error}</span>
-          <button onClick={() => setError("")} style={{ background:"none", border:"none", cursor:"pointer", color:"#991b1b", fontSize:18 }}>×</button>
+          <span style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <span style={{ width:18, height:18, borderRadius:99, background:COLOR.nohire, color:"#fff", fontSize:11, display:"inline-flex", alignItems:"center", justifyContent:"center", fontWeight:800 }}>!</span>
+            {error}
+          </span>
+          <button onClick={() => setError("")} style={{ background:"none", border:"none", cursor:"pointer", color:COLOR.nohireBadgeText, fontSize:18 }}>{"\u00d7"}</button>
         </div>
       )}
 
-      <main style={{ maxWidth:1200, margin:"0 auto", padding:"32px 24px" }}>
-
-        {/* ══════════════════════════════════════════════════════════════════════
-            INPUT PHASE
-        ═══════════════════════════════════════════════════════════════════════ */}
+      <main style={{ maxWidth:1240, margin:"0 auto", padding: phase === "input" ? "40px 24px 80px" : "28px 24px 80px" }}>
         {phase === "input" && !loading && (
           <>
-            {/* Steps indicator */}
-            <div style={{ display:"flex", gap:8, marginBottom:24, alignItems:"center" }}>
-              {[["1","Add Job Description"],["2","Upload Resumes"],["3","Get Ranked Results"]].map(([n,t],i) => (
+            <div style={{ textAlign:"center", marginBottom:36, animation:"slideUp .4s ease" }}>
+              <div style={{
+                display:"inline-flex", alignItems:"center", gap:7,
+                padding:"5px 13px", borderRadius:99,
+                background:COLOR.brandLight, color:COLOR.brand, fontSize:11.5,
+                fontWeight:700, letterSpacing:.3, marginBottom:18, textTransform:"uppercase",
+              }}>
+                <span style={{ width:6, height:6, borderRadius:99, background:COLOR.brand }} />
+                HR-grade scoring
+              </div>
+              <h1 style={{
+                fontSize:40, fontWeight:900, letterSpacing:-1.5, lineHeight:1.1,
+                color:COLOR.ink, marginBottom:14,
+              }}>
+                Screen smarter, hire faster.
+              </h1>
+              <p style={{
+                fontSize:16, color:COLOR.muted, maxWidth:620, margin:"0 auto",
+                lineHeight:1.55, fontWeight:400,
+              }}>
+                Upload resumes, paste a job description, and get ranked candidates
+                with honest, human-like scoring {"\u2014"} not keyword filters.
+              </p>
+            </div>
+
+            <div style={{ display:"flex", gap:8, marginBottom:24, alignItems:"center", justifyContent:"center", flexWrap:"wrap" }}>
+              {[["1","Paste JD"],["2","Upload Resumes"],["3","Get Ranked Results"]].map(([n,t],i) => (
                 <div key={n} style={{ display:"flex", alignItems:"center", gap:8 }}>
-                  {i > 0 && <div style={{ width:32, height:1, background:COLOR.gray200 }} />}
-                  <div style={{ display:"flex", alignItems:"center", gap:7 }}>
+                  {i > 0 && <div style={{ width:28, height:1, background:COLOR.hairline }} />}
+                  <div style={{ display:"flex", alignItems:"center", gap:8, padding:"5px 12px 5px 5px", background:COLOR.surface, borderRadius:99, border:`1px solid ${COLOR.hairline}` }}>
                     <div style={{
-                      width:24, height:24, borderRadius:99, background:COLOR.primary,
-                      color:COLOR.white, fontSize:11, fontWeight:700,
+                      width:22, height:22, borderRadius:99, background:COLOR.brand,
+                      color:COLOR.surface, fontSize:11, fontWeight:800,
                       display:"flex", alignItems:"center", justifyContent:"center"
                     }}>{n}</div>
-                    <span style={{ fontSize:13, fontWeight:600, color:COLOR.gray700 }}>{t}</span>
+                    <span style={{ fontSize:12.5, fontWeight:600, color:COLOR.inkSoft }}>{t}</span>
                   </div>
                 </div>
               ))}
             </div>
 
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:20, marginBottom:24 }}>
-              {/* JD input */}
-              <Card>
-                <SectionTitle>📋 Job Description</SectionTitle>
+            <div style={{ display:"grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap:18, marginBottom:28 }}>
+              <Card hoverable>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+                  <SectionTitle style={{marginBottom:0}}>Job Description</SectionTitle>
+                  <span style={{ fontSize:11, color:COLOR.subtle }}>Paste role details below</span>
+                </div>
                 <textarea
                   value={jd}
                   onChange={e => setJd(e.target.value)}
-                  placeholder={`Paste the job description here…\n\nExample:\nWe are looking for a Graphic Designer with 2+ years of experience. Skills required: Adobe Photoshop, Illustrator, video editing. Degree in design preferred.`}
+                  placeholder={"Paste the job description here...\n\nExample:\nWe are hiring a Graphic Designer with 2+ years of experience. Required skills: Adobe Photoshop, Illustrator, video editing. Degree in design preferred."}
                   style={{
-                    width:"100%", height:260, padding:"12px 14px",
-                    border:`1.5px solid ${jd ? COLOR.primary : COLOR.gray200}`,
-                    borderRadius:10, fontSize:13, lineHeight:1.7, resize:"vertical",
-                    outline:"none", fontFamily:"inherit", color:COLOR.gray700,
-                    boxSizing:"border-box", transition:"border-color 0.2s",
-                    background:COLOR.gray50,
+                    width:"100%", height:260, padding:"14px 16px",
+                    border:`1.5px solid ${jd ? COLOR.brand : COLOR.hairline}`,
+                    borderRadius:12, fontSize:13.5, lineHeight:1.7, resize:"vertical",
+                    outline:"none", fontFamily:"inherit", color:COLOR.inkSoft,
+                    boxSizing:"border-box", transition:"border-color 0.2s, box-shadow .2s",
+                    background:COLOR.bgSoft,
+                    boxShadow: jd ? `0 0 0 4px ${COLOR.brandLight}` : "none",
                   }}
                 />
-                <div style={{ display:"flex", justifyContent:"space-between", marginTop:6 }}>
-                  <span style={{ fontSize:11, color:COLOR.gray400 }}>{jd.length} characters</span>
-                  {jd.length > 100 && <span style={{ fontSize:11, color:COLOR.hire }}>✓ JD ready</span>}
+                <div style={{ display:"flex", justifyContent:"space-between", marginTop:8 }}>
+                  <span style={{ fontSize:11, color:COLOR.subtle }}>{jd.length} characters</span>
+                  {jd.length > 100 && <span style={{ fontSize:11, color:COLOR.hire, fontWeight:600 }}>{"\u2713"} JD ready</span>}
                 </div>
               </Card>
 
-              {/* Resume upload */}
-              <Card>
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
-                  <SectionTitle style={{marginBottom:0}}>📁 Upload Resumes</SectionTitle>
-                  <span style={{ fontSize:11, color:COLOR.gray400 }}>
+              <Card hoverable>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+                  <SectionTitle style={{marginBottom:0}}>Upload Resumes</SectionTitle>
+                  <span style={{ fontSize:11, color:COLOR.subtle, fontWeight:600,
+                    background: COLOR.bgSoft, padding:"3px 10px", borderRadius:99 }}>
                     {files.length}/10 uploaded
                   </span>
                 </div>
@@ -550,84 +623,99 @@ export default function App() {
               </Card>
             </div>
 
-            {/* Analyze button */}
             <div style={{ textAlign:"center" }}>
               <button
                 onClick={handleAnalyze}
                 disabled={!files.length || !jd.trim()}
                 style={{
-                  background: (!files.length || !jd.trim()) ? COLOR.gray200 : "linear-gradient(135deg,#4f46e5,#7c3aed)",
-                  color: (!files.length || !jd.trim()) ? COLOR.gray400 : COLOR.white,
-                  border:"none", borderRadius:12, padding:"15px 52px",
-                  fontSize:16, fontWeight:700, cursor: (!files.length || !jd.trim()) ? "not-allowed" : "pointer",
-                  boxShadow: (!files.length || !jd.trim()) ? "none" : "0 4px 14px rgba(79,70,229,0.4)",
-                  transition:"all 0.2s", letterSpacing:0.3,
+                  background: (!files.length || !jd.trim()) ? COLOR.hairline : `linear-gradient(135deg, ${COLOR.brand}, ${COLOR.brandDark})`,
+                  color: (!files.length || !jd.trim()) ? COLOR.subtle : COLOR.surface,
+                  border:"none", borderRadius:12, padding:"15px 56px",
+                  fontSize:15.5, fontWeight:700, cursor: (!files.length || !jd.trim()) ? "not-allowed" : "pointer",
+                  boxShadow: (!files.length || !jd.trim()) ? "none" : SHADOW.brand,
+                  transition:"transform .15s, box-shadow .15s", letterSpacing:0.3,
                 }}
+                onMouseDown={e => { if (!e.currentTarget.disabled) e.currentTarget.style.transform = "translateY(1px)"; }}
+                onMouseUp={e => { e.currentTarget.style.transform = "translateY(0)"; }}
               >
-                ⚡ Analyze {files.length > 1 ? `${files.length} Resumes` : "Resume"}
+                Analyze {files.length > 1 ? `${files.length} resumes` : "resume"} {"\u2192"}
               </button>
-              <div style={{ fontSize:12, color:COLOR.gray400, marginTop:8 }}>
-                Takes 15–90 seconds depending on AI provider and number of resumes
+              <div style={{ fontSize:12, color:COLOR.subtle, marginTop:12 }}>
+                Takes 15{"\u2013"}90 seconds depending on provider and batch size
               </div>
+            </div>
+
+            <div style={{ display:"grid", gridTemplateColumns: narrow ? "1fr" : "repeat(3, 1fr)", gap:14, marginTop:56 }}>
+              {[
+                { title:"Privacy-first", body:"Resumes never leave memory. Nothing stored, logged, or resold." },
+                { title:"Human-like scoring", body:"Skill equivalences, retention-risk flags, domain adjacency." },
+                { title:"Explainable results", body:"Every verdict comes with a reason, breakdown, and interview questions." },
+              ].map((f, i) => (
+                <div key={i} style={{
+                  background:COLOR.surface, borderRadius:14, padding:"18px 20px",
+                  border:`1px solid ${COLOR.hairline}`,
+                }}>
+                  <div style={{
+                    width:30, height:30, borderRadius:8, background:COLOR.brandLight,
+                    color:COLOR.brand, display:"flex", alignItems:"center", justifyContent:"center",
+                    fontWeight:900, fontSize:13, marginBottom:10,
+                  }}>0{i+1}</div>
+                  <div style={{ fontSize:13, fontWeight:700, color:COLOR.ink, marginBottom:4 }}>{f.title}</div>
+                  <div style={{ fontSize:12.5, color:COLOR.muted, lineHeight:1.55 }}>{f.body}</div>
+                </div>
+              ))}
             </div>
           </>
         )}
 
-        {/* ══════════════════════════════════════════════════════════════════════
-            LOADING
-        ═══════════════════════════════════════════════════════════════════════ */}
         {loading && <LoadingView total={files.length} done={loadDone} />}
 
-        {/* ══════════════════════════════════════════════════════════════════════
-            RESULTS PHASE
-        ═══════════════════════════════════════════════════════════════════════ */}
         {phase === "results" && !loading && (
-          <div style={{ display:"flex", gap:20 }}>
-
+          <div style={{ display:"flex", gap:20, flexDirection: narrow ? "column" : "row" }}>
             <div style={{ flex:1, minWidth:0 }}>
-              {/* Summary stats */}
               <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:20 }}>
                 {[
-                  { label:"Recommended", count:hireCount,  color:COLOR.hire,   bg:COLOR.hireBg,   icon:"✓" },
-                  { label:"Review Needed", count:maybeCount, color:COLOR.maybe,  bg:COLOR.maybeBg,  icon:"~" },
-                  { label:"Not Recommended", count:noCount,  color:COLOR.nohire, bg:COLOR.nohireBg, icon:"✕" },
+                  { label:"Recommended",     count:hireCount,  color:COLOR.hire,   bg:COLOR.hireBg,   border:COLOR.hireBorder,   icon:"\u2713" },
+                  { label:"Review Needed",   count:maybeCount, color:COLOR.maybe,  bg:COLOR.maybeBg,  border:COLOR.maybeBorder,  icon:"~" },
+                  { label:"Not Recommended", count:noCount,    color:COLOR.nohire, bg:COLOR.nohireBg, border:COLOR.nohireBorder, icon:"\u2715" },
                 ].map(s => (
                   <div key={s.label} style={{
-                    background:s.bg, borderRadius:12, padding:"16px 20px",
-                    border:`1px solid`, borderColor: s.count ? s.color + "40" : COLOR.gray200,
+                    background:COLOR.surface, borderRadius:14, padding:"16px 18px",
+                    border:`1px solid ${s.count ? s.border : COLOR.hairline}`,
+                    boxShadow: SHADOW.xs,
                   }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:12 }}>
                       <div style={{
-                        width:32, height:32, borderRadius:99, background:s.color,
-                        color:COLOR.white, display:"flex", alignItems:"center", justifyContent:"center",
-                        fontSize:14, fontWeight:700
+                        width:38, height:38, borderRadius:10, background:s.bg,
+                        color:s.color, display:"flex", alignItems:"center", justifyContent:"center",
+                        fontSize:16, fontWeight:800, border:`1px solid ${s.border}`,
                       }}>{s.icon}</div>
                       <div>
-                        <div style={{ fontSize:24, fontWeight:900, color:s.count ? s.color : COLOR.gray400, lineHeight:1 }}>{s.count}</div>
-                        <div style={{ fontSize:11, color:COLOR.gray500, marginTop:1 }}>{s.label}</div>
+                        <div style={{ fontSize:26, fontWeight:900, color:s.count ? s.color : COLOR.subtle, lineHeight:1, letterSpacing:-.6 }}>{s.count}</div>
+                        <div style={{ fontSize:11, color:COLOR.muted, marginTop:3, fontWeight:600, textTransform:"uppercase", letterSpacing:.3 }}>{s.label}</div>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
 
-              {/* Ranking table */}
               <Card style={{ padding:0, overflow:"hidden" }}>
-                <div style={{ padding:"16px 20px", borderBottom:`1px solid ${COLOR.gray200}`,
+                <div style={{ padding:"18px 22px", borderBottom:`1px solid ${COLOR.hairline}`,
                   display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                  <div style={{ fontWeight:700, fontSize:15 }}>🏆 Candidate Rankings</div>
-                  <div style={{ fontSize:12, color:COLOR.gray400 }}>{results.length} candidate{results.length !== 1 ? "s" : ""} analyzed</div>
+                  <div>
+                    <div style={{ fontWeight:800, fontSize:15, color:COLOR.ink, letterSpacing:-.2 }}>Candidate Rankings</div>
+                    <div style={{ fontSize:12, color:COLOR.subtle, marginTop:2 }}>Sorted by overall match score</div>
+                  </div>
+                  <div style={{ fontSize:12, color:COLOR.muted, fontWeight:500 }}>{results.length} candidate{results.length !== 1 ? "s" : ""} analyzed</div>
                 </div>
                 <div style={{ overflowX:"auto" }}>
                   <table style={{ width:"100%", borderCollapse:"collapse" }}>
                     <thead>
-                      <tr style={{ background:COLOR.gray50 }}>
+                      <tr style={{ background:COLOR.bgSoft }}>
                         {["Rank","Candidate","Score","Verdict","Overview",""].map(h => (
-                          <th key={h} style={{ padding:"10px 16px", textAlign:"left",
-                            fontSize:11, color:COLOR.gray400, fontWeight:700, textTransform:"uppercase",
-                            letterSpacing:0.5, borderBottom:`1px solid ${COLOR.gray200}` }}>
-                            {h}
-                          </th>
+                          <th key={h} style={{ padding:"11px 16px", textAlign:"left",
+                            fontSize:10.5, color:COLOR.muted, fontWeight:700, textTransform:"uppercase",
+                            letterSpacing:0.6, borderBottom:`1px solid ${COLOR.hairline}` }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -644,22 +732,24 @@ export default function App() {
               </Card>
             </div>
 
-            {/* Sticky detail panel (inline on wide screens, modal-style on narrow) */}
             {selected && (
-              <div style={{ width:520, flexShrink:0 }}>
-                <div style={{ position:"sticky", top:80 }}>
+              <div style={{ width: narrow ? "100%" : 540, flexShrink:0 }}>
+                <div style={{ position: narrow ? "static" : "sticky", top:88 }}>
                   <DetailPanel result={selected} onClose={() => setSelected(null)} />
                 </div>
               </div>
             )}
           </div>
         )}
-
-        {/* Fullscreen detail panel on small screens */}
-        {selected && window.innerWidth < 1024 && (
-          <DetailPanel result={selected} onClose={() => setSelected(null)} />
-        )}
       </main>
+
+      <footer style={{
+        borderTop:`1px solid ${COLOR.hairline}`,
+        padding:"18px 28px", textAlign:"center",
+        fontSize:12, color:COLOR.subtle, background:COLOR.surface,
+      }}>
+        {"\u00a9"} {new Date().getFullYear()} ICS {"\u00b7"} Resume Analyzer {"\u00b7"} Privacy-first HR tooling
+      </footer>
     </div>
   );
 }

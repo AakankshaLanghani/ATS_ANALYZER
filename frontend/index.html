@@ -3,10 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ATS Resume Analyzer</title>
+    <meta name="description" content="ICS Resume Analyzer - AI-powered resume screening for HR teams." />
+    <meta name="theme-color" content="#E31E24" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <title>ICS Resume Analyzer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
     <style>
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { font-family: system-ui, sans-serif; }
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body, #root { height: 100%; }
+      body {
+        font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        font-feature-settings: 'cv11','ss01';
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        background: #fafafa;
+        color: #0f172a;
+      }
+      button, input, textarea { font-family: inherit; }
+      ::-webkit-scrollbar { width: 10px; height: 10px; }
+      ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 99px; }
+      ::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
+      @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+      @keyframes slideUp { from{opacity:0; transform:translateY(12px)} to{opacity:1; transform:translateY(0)} }
+      @keyframes spin { to { transform: rotate(360deg); } }
     </style>
   </head>
   <body>
